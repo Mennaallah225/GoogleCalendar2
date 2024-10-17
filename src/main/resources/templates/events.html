@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create and Display Events</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            text-align: center;
+        }
+
+        form input, form select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        form button {
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        form button:hover {
+            background: #0056b3;
+        }
+
+        .event-card {
+            background-color: #fff;
+            margin: 10px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            transition: transform 0.2s;
+        }
+
+        .event-card:hover {
+            transform: scale(1.02);
+        }
+
+        .event-card h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .event-card p {
+            margin: 5px 0;
+        }
+
+        .event-card .actions {
+            margin-top: 10px;
+        }
+
+        .event-card .actions button {
+            padding: 8px;
+            margin-right: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .event-card .edit-btn {
+            background-color: blue;
+            color: #fff;
+        }
+
+        .event-card .delete-btn {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        .response-message {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Create New Event</h1>
+
+    <form id="eventForm">
+        <input type="text" id="title" placeholder="Event Title" required>
+        <input type="number" id="userId" placeholder="User ID" required>
+        <input type="text" id="description" placeholder="Event Description">
+        <input type="datetime-local" id="startTime" required>
+        <input type="datetime-local" id="endTime" required>
+        <select id="status">
+            <option value="PENDING">Pending</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+        </select>
+        <label>
+            <input type="checkbox" id="issynced"> Synced
+        </label>
+        <button type="submit">Create Event</button>
+    </form>
+
+    <p id="responseMessage" class="response-message"></p>
+
+    <h2>Event List</h2>
+    <div id="eventCards">
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', fetchEvents);
+
+    document.getElementById('eventForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const title = document.getElementById('title').value;
+        const userId = document.getElementById('userId').value;
+        const description = document.getElementById('description').value;
+        const startTime = document.getElementById('startTime').value;
+        const endTime = document.getElementById('endTime').value;
+        const status = document.getElementById('status').value;
+        const issynced = document.getElementById('issynced').checked;
+
+        addEvent(title, userId, description, startTime, endTime, status, issynced);
+        this.reset(); 
+    });
+
+    function addEvent(title, userId, description, startTime, endTime, status, issynced) {
+        const event = {
+            title,
+            userId,
+            description,
+            startTime,
+            endTime,
+            status,
+            issynced
+        };
+
+        fetch('/api/events', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(event)
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('responseMessage').innerText = 'Event created successfully!';
+            displayEventCard(data); // Display the new event card
+        })
+        .catch((error) => {
+            document.getElementById('responseMessage').innerText = 'Failed to create event!';
+            console.error('Error:', error);
+        });
+    }
+
+    function displayEventCard(event) {
+        const eventCards = document.getElementById('eventCards');
+        const eventCard = document.createElement('div');
+        eventCard.className = 'event-card';
+        eventCard.innerHTML = `
+            <h2>${event.title}</h2>
+            <p><strong>User ID:</strong> ${event.userId}</p>
+            <p><strong>Description:</strong> ${event.description}</p>
+            <p><strong>Start Time:</strong> ${new Date(event.startTime).toLocaleString()}</p>
+            <p><strong>End Time:</strong> ${new Date(event.endTime).toLocaleString()}</p>
+            <p><strong>Status:</strong> ${event.status}</p>
+            <p><strong>Synced:</strong> ${event.issynced ? 'Yes' : 'No'}</p>
+            <div class="actions">
+                <button class="edit-btn" onclick="editEvent(${event.id})">Edit</button>
+                <button class="delete-btn" onclick="deleteEvent(${event.id})">Delete</button>
+            </div>
+        `;
+        eventCards.appendChild(eventCard);
+    }
+
+    function fetchEvents() {
+        fetch('/api/events')
+            .then(response => response.json())
+            .then(data => {
+                const eventCards = document.getElementById('eventCards');
+                eventCards.innerHTML = ''; 
+                data.forEach(event => {
+                    displayEventCard(event);
+                });
+            })
+            .catch((error) => console.error('Error fetching events:', error));
+    }
+
+    function deleteEvent(eventId) {
+        fetch(`/api/events/${eventId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (response.ok) {
+                fetchEvents(); 
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+    
+    function editEvent(eventId) {
+        alert(`Edit functionality for event ID: ${eventId} not implemented yet.`);
+    }
+</script>
+
+</body>
+</html>
